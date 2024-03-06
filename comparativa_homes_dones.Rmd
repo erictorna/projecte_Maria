@@ -1,0 +1,72 @@
+---
+title: "Taules comparativa sexe"
+date: '`r Sys.time()`'
+author: 'ETN'
+output: 
+  html_document: 
+    toc: yes
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+library(ggpubr)
+library(data.table)
+library(tidyverse)
+library(dplyr)
+library(janitor)
+library(kableExtra)
+knitr::opts_chunk$set(echo = FALSE)
+load('global.RData')
+load('homes.RData')
+load('dones.RData')
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+variables = names(global)
+variables = variables[-c(1, 2, 3, 33)]
+
+new_suffix <- "_glob"
+for (col in names(homes)) {
+  if (endsWith(col, "_home")) {
+    setnames(homes, old = col, new = paste0(sub("_home$", "", col), new_suffix))
+  }
+}
+for (col in names(dones)) {
+  if (endsWith(col, "_dona")) {
+    setnames(dones, old = col, new = paste0(sub("_dona$", "", col), new_suffix))
+  }
+}
+
+taula <- data.table(variable = character(), counts_global = character(), counts_homes = character(), counts_dones = character(), p_value = numeric())
+homes = homes %>% rename(Cisq_glob=CIsq_glob) %>% rename(Pscontrol_glob = PScontrol_glob)
+dones = dones %>% rename(Pscontrol_glob = PScontrol_glob)
+```
+
+* Taula descriptiva de les diferents variables per global i per sexes (mitjana + SD), p-valor calculat a partir d'un t-test 
+
+```{r taula}
+p_values <- list()
+for (var in variables) {
+  
+    # Calculate counts for each data table
+    counts_global <- global[, .(count_global = sprintf('%s(±%s)', round(mean(get(var)),2), round(sd(get(var), na.rm=TRUE),2)))]
+    counts_homes <- homes[, .(count_homes = sprintf('%s(±%s)', round(mean(get(var)),2), round(sd(get(var), na.rm=TRUE),2)))]
+    counts_dones <- dones[, .(count_dones = sprintf('%s(±%s)', round(mean(get(var)),2), round(sd(get(var), na.rm=TRUE),2)))]
+    
+    # Perform t-test
+    t_test_result <- t.test(homes[[var]], dones[[var]])
+    
+    # Combine values into a list
+    new_row <- list(var, counts_global$count_global, counts_homes$count_homes, counts_dones$count_dones, t_test_result$p.value)
+    
+    # Add new row to the new_table
+    taula <- rbindlist(list(taula, new_row), use.names = TRUE, fill = TRUE)
+}
+
+
+taula[, variable := gsub("_glob$", "", variable)]
+taula = taula %>% mutate(p_value = ifelse(p_value<=0.05, '<0.05', as.character(round(p_value,2))))
+
+kbl(taula) %>%
+  kable_classic() %>%
+  row_spec(which(1:nrow(taula) %% 2 == 0), extra_css = "background-color: lightblue;")
+```
+

@@ -1,0 +1,53 @@
+---
+title: "Correlation Global"
+date: '`r Sys.time()`'
+author: 'ETN'
+output: 
+  html_document: 
+    toc: yes
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+library(ggpubr)
+library(ggplot2)
+library(tidyverse)
+library(data.table)
+library(dplyr)
+knitr::opts_chunk$set(echo = FALSE)
+load('homes.RData')
+load('dones.RData')
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+* Corr method -> Pearson
+
+```{r, results='asis', fig.height = 8, fig.width = 10}
+corr_homes <- homes %>% select(ISC, PrevDM2=PrevDM2_home, EdatDx=EdatDx_home, PPcontrol=PPcontrol_home, PScontrol=PScontrol_home, Retinopatia=Retinopatia_home, IRC=IRC_home, ttmComb=ttmComb_home)
+corr_homes$sexe = 'home'
+corr_dones <- dones %>% select(ISC, PrevDM2=PrevDM2_dona, EdatDx=EdatDx_dona, PPcontrol=PPcontrol_dona, PScontrol=PScontrol_dona, Retinopatia=Retinopatia_dona, IRC=IRC_dona, ttmComb=ttmComb_dona)
+corr_dones$sexe = 'dona'
+corr = full_join(corr_dones, corr_homes)
+```
+
+# Correlacio ISC 2019
+
+```{r, results='asis', fig.height = 8, fig.width = 10}
+cols = colnames(corr)
+cols = cols[-c(1, 9)]
+corr$sexe <- factor(corr$sexe)
+
+for (i in cols) {
+  a = summary(lm(as.formula(paste(i, '~ISC*sexe')), data = corr))
+  cat(sprintf("\n\n## %s \n\n", i))
+  print(ggscatter(corr, x = i, y = 'ISC', color = 'sexe',
+          xlab = i, ylab = "ISC") +
+  geom_smooth(method = "lm", aes(group = sexe, color = sexe),
+              se = FALSE,   # Suppress confidence interval
+              na.rm = TRUE) +
+  stat_cor(method = "pearson",
+           aes(color = sexe)))
+  cat('p-valor = ', a$coefficients[, 4][4])
+}
+```
+

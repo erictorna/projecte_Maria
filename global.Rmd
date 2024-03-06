@@ -1,0 +1,42 @@
+---
+title: "Correlation Global"
+date: '`r Sys.time()`'
+author: 'ETN'
+output: 
+  html_document: 
+    toc: yes
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+library(ggpubr)
+library(tidyverse)
+library(dplyr)
+knitr::opts_chunk$set(echo = FALSE)
+load('global.RData')
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+* Corr method -> Pearson
+
+```{r, results='asis', fig.height = 8, fig.width = 10}
+corr <- global %>% select(ISC, PrevDM2_glob, EdatDx_glob, PPcontrol_glob, Pscontrol_glob, Retinopatia_glob, IRC_glob, ttmComb_glob)
+```
+
+# Correlacio ISC 2019
+
+```{r, results='asis', fig.height = 8, fig.width = 10}
+cols = colnames(corr)
+cols = cols[-c(1)]
+
+for (i in cols) {
+  cat(sprintf("\n\n## %s \n\n", i))
+  print(ggscatter(corr, x = i, y = 'ISC',
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = i, ylab = "ISC") +
+  geom_smooth(method=lm, na.rm = TRUE, fullrange= TRUE,
+              aes(group=1),colour="black"))
+   cat('----------------------------------------------------------------------------------------------------------------------------------------------------------------------------')
+}
+
+```

@@ -1,0 +1,19 @@
+---
+title: "Projecte_Maria"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+---
+
+* Correlació global[[html]](global.html)
+
+* Correlació per sexes[[html]](homes_dones.html)
+
+* Taules Global[[html]](taules_global.html)
+
+* Taules dones[[html]](taules_dones.html)
+
+* Taules homes[[html]](taules_homes.html)
+
+* Comparativa sexes[[html]](comparativa_homes_dones.html)

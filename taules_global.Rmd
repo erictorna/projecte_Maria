@@ -1,0 +1,157 @@
+---
+title: "Taules Global"
+date: '`r Sys.time()`'
+author: 'ETN'
+output: 
+  html_document: 
+    toc: yes
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+library(ggpubr)
+library(data.table)
+library(tidyverse)
+library(dplyr)
+library(janitor)
+library(kableExtra)
+knitr::opts_chunk$set(echo = FALSE)
+load('global.RData')
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+variables = names(global)
+variables = variables[-c(1, 2, 3, 33)]
+```
+
+```{r normality}
+# normality = global %>% select(-ABS_complet, -ABSnom, -ISC, -ISC_Quartile)
+# shapiro_test <- function(x) {
+#     if(is.numeric(x)) {
+#         shapiro.test(x)$p.value
+#     } else {
+#         NA
+#     }
+# }
+# shapiro_results <- lapply(normality, shapiro_test)
+# shapiro_results_table <- data.table(
+#     Variable = names(normality),
+#     Shapiro_P_Value = unlist(shapiro_results)
+# )
+# setDT(shapiro_results_table)
+# no_normal = shapiro_results_table[Shapiro_P_Value<=0.05]
+# normal = shapiro_results_table[Shapiro_P_Value>0.05]
+```
+
+
+* Mitjana + SD, càlcul del p-valor a partir d'una ANOVA
+
+```{r taula_normal}
+dades = global %>% mutate(ISC_Quartile = ifelse(is.na(ISC_Quartile), 1, ISC_Quartile))
+dades = dades %>% mutate(ISC_Quartile = sprintf('Q%s', ISC_Quartile))
+taula = dades[, .N, keyby = .(ISC_Quartile)]
+for (var in variables) {
+
+    counts <- dades[, .(count_1 = sprintf('%s(±%s)', round(mean(get(var)[ISC_Quartile == 'Q1']),2), round(sd(get(var)[ISC_Quartile == 'Q1'], na.rm=TRUE),2)),
+           count_2 = sprintf('%s(±%s)', round(mean(get(var)[ISC_Quartile == 'Q2']),2), round(sd(get(var)[ISC_Quartile == 'Q2'], na.rm=TRUE),2)),
+           count_3 = sprintf('%s(±%s)', round(mean(get(var)[ISC_Quartile == 'Q3']),2), round(sd(get(var)[ISC_Quartile == 'Q3'], na.rm=TRUE),2)),
+           count_4 = sprintf('%s(±%s)', round(mean(get(var)[ISC_Quartile == 'Q4']),2), round(sd(get(var)[ISC_Quartile == 'Q4'], na.rm=TRUE),2)))]
+  
+  # Add counts to 'taula'
+  taula[, (var) := c(counts[[1]], counts[[2]], counts[[3]], counts[[4]])]
+}
+results <- list()
+for (var in variables) {
+  anova_result <- summary(aov(get(var) ~ ISC_Quartile, data = dades))
+  p_value <- anova_result[[1]]$"Pr(>F)"[1]
+  summary_data <- data.table(
+    variable = var,
+    p_value = p_value
+  )
+  results[[var]] <- summary_data
+}
+final_result <- rbindlist(results)
+p_values = c(final_result$p_value)
+taula$N<-NULL
+taula = t(taula)
+taula = taula %>% row_to_names(row_number = 1)
+taula = as.data.frame(taula)
+taula$p_value = p_values
+taula = taula %>% mutate(p_value=round(p_value, 2))
+taula = taula %>% mutate(p_value=ifelse(p_value<=0.05, '<0.05', as.character(round(p_value,2))))
+kbl(taula) %>%
+  kable_classic() %>%
+  row_spec(which(1:nrow(taula) %% 2 == 0), extra_css = "background-color: lightblue;")
+```
+
+```{r normaltot, echo=FALSE, message=FALSE, warning=FALSE, results='asis', fig.width=3, fig.height=3}
+for (var in variables) {
+  hist(dades[[var]], breaks = "FD", freq = FALSE,
+       col = "lightblue", border = "black",
+       xlab = var, ylab = "Density",
+       main = paste(var))
+  # Add a red line representing the normal distribution
+mu <- mean(dades[[var]])
+sigma <- sd(dades[[var]])
+x <- seq(min(dades[[var]]), max(dades[[var]]), length = 100)
+y <- dnorm(x, mean = mu, sd = sigma)
+lines(x, y, col = "red", lwd = 2)
+}
+```
+
+
+
+
+```{r taula_no_normal}
+# * Variables sense distrubució normal (mediana + rang interquartilic), càlcul del p-valor a partir del test Kruskal-Wallis
+# variables = no_normal[[1]]
+# dades = global %>% mutate(ISC_Quartile = ifelse(is.na(ISC_Quartile), 1, ISC_Quartile))
+# dades = dades %>% mutate(ISC_Quartile = sprintf('Q%s', ISC_Quartile))
+# taula = dades[, .N, keyby = .(ISC_Quartile)]
+# for (var in variables) {
+#   counts <- dades[, .(count_1 = sprintf('%s(%s-%s)', round(median(get(var)[ISC_Quartile == 'Q1']),2), round(quantile(get(var)[ISC_Quartile == 'Q1'], 0.25, na.rm=TRUE),2), round(quantile(get(var)[ISC_Quartile == 'Q1'], 0.75, na.rm=TRUE),2)),
+#            count_2 = sprintf('%s(%s-%s)', round(median(get(var)[ISC_Quartile == 'Q2']),2), round(quantile(get(var)[ISC_Quartile == 'Q2'], 0.25, na.rm=TRUE),2), round(quantile(get(var)[ISC_Quartile == 'Q2'], 0.75, na.rm=TRUE),2)),
+#            count_3 = sprintf('%s(%s-%s)', round(median(get(var)[ISC_Quartile == 'Q3']),2), round(quantile(get(var)[ISC_Quartile == 'Q3'], 0.25, na.rm=TRUE),2), round(quantile(get(var)[ISC_Quartile == 'Q3'], 0.75, na.rm=TRUE),2)),
+#            count_4 = sprintf('%s(%s-%s)', round(median(get(var)[ISC_Quartile == 'Q4']),2), round(quantile(get(var)[ISC_Quartile == 'Q4'], 0.25, na.rm=TRUE),2), round(quantile(get(var)[ISC_Quartile == 'Q4'], 0.75, na.rm=TRUE),2)))]
+#   
+#   # Add counts to 'taula'
+#   taula[, (var) := c(counts[[1]], counts[[2]], counts[[3]], counts[[4]])]
+# }
+# results <- list()
+# for (var in variables) {
+#   # Perform Kruskal-Wallis test
+#   kruskal_test_result <- kruskal.test(get(var) ~ ISC_Quartile, data = dades)
+#   p_value <- kruskal_test_result$p.value
+#   summary_data <- data.table(
+#     variable = var,
+#     p_value = p_value
+#   )
+# 
+#   results[[var]] <- summary_data
+# }
+# final_result <- rbindlist(results)
+# p_values = c(final_result$p_value)
+# taula$N<-NULL
+# taula = t(taula)
+# taula = taula %>% row_to_names(row_number = 1)
+# taula = as.data.frame(taula)
+# taula$p_value = p_values
+# taula = taula %>% mutate(p_value=round(p_value, 2))
+# taula = taula %>% mutate(p_value=ifelse(p_value<=0.05, '<0.05', as.character(round(p_value,2))))
+# kbl(taula) %>%
+#   kable_classic() %>%
+#   row_spec(which(1:nrow(taula) %% 2 == 0), extra_css = "background-color: lightblue;")
+```
+
+```{r no_normaltot, echo=FALSE, message=FALSE, warning=FALSE, results='asis', fig.width=3, fig.height=3}
+# for (var in variables) {
+#   hist(dades[[var]], breaks = "FD", freq = FALSE,
+#        col = "lightblue", border = "black",
+#        xlab = var, ylab = "Density",
+#        main = paste(var))
+#   # Add a red line representing the normal distribution
+#   mu <- mean(dades[[var]])
+#   sigma <- sd(dades[[var]])
+#   x <- seq(min(dades[[var]]), max(dades[[var]]), length = 100)
+#   y <- dnorm(x, mean = mu, sd = sigma)
+#   lines(x, y, col = "red", lwd = 2)
+# }
+```
